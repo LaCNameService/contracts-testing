@@ -2679,7 +2679,7 @@ contract LACNameService is Ownable, ERC721Enumerable {
     }
 
     function register(string memory name , string memory domainType, uint256 year, address _resolveAddress) public payable{
-        require(checkDomainTypeAllowed(domainType), "Domain type is not allowed.");
+        require(checkDomainTypeAllowed(domainType), "Error: Domain type is not allowed.");
         string memory fullName = string(abi.encodePacked(name, ".", domainType));
         require(checkDomainAvailable(fullName), "Error: Domain is not available for registration.");
         require(!paused, "Error: Contract is currently paused.");
@@ -2721,7 +2721,7 @@ contract LACNameService is Ownable, ERC721Enumerable {
 }
 
 function renew(string memory name, string memory domainType, uint256 year) public payable {
-    require(checkDomainTypeAllowed(domainType), "Domain type is not allowed.");
+    require(checkDomainTypeAllowed(domainType), "Error: Domain type is not allowed.");
     string memory fullName = string(abi.encodePacked(name, ".", domainType));
     require(bytes(name).length >= 3, "Error: Domain name must have at least 3 characters.");
     require(_exists(domains[fullName].nftID), "Error: Domain does not exist.");
