@@ -37,6 +37,13 @@ describe("LaChain Name Service testing Domain", function () {
   it("Checking domain not added yet by not Owner", async function () {
     expect(await LACNSContract.connect(userOne).checkDomainTypeAllowed('testing')).to.equal(false);
   });
+
+  it("Add domain, buy name and remove domain", async function () {
+    await LACNSContract.connect(owner).addDomainType('LAC');
+    await LACNSContract.connect(userOne).register('fer', 'LAC', 1, userOne.address, {value: '800000000000000000'});
+    await LACNSContract.connect(owner).removeDomainType('LAC');
+    expect(await LACNSContract.connect(userOne).checkDomainTypeAllowed('LAC')).to.equal(false);
+  });
   
 });
 
@@ -236,5 +243,84 @@ describe("LaChain Name Service testing Register", function () {
             2
           );
       });
+
+});
+
+describe("LaChain Name Service testing Change Data", function () {
+
+  let owner, playerOne, playerTwo;
+    
+  beforeEach(async function () {
+      [owner, userOne, userTwo] = await ethers.getSigners();
+      LACNS = await ethers.getContractFactory("LACNameService");
+      LACNSContract = await LACNS.deploy('');
+      await LACNSContract.connect(owner).addDomainType('lac');
+      await LACNSContract.connect(owner).addDomainType('ripio');
+      await LACNSContract.connect(owner).addDomainType('sensei');
+      await LACNSContract.connect(owner).addDomainType('num');
+      await LACNSContract.connect(owner).addDomainType('cedalio');
+      await LACNSContract.connect(owner).addDomainType('buenbit');
+      await LACNSContract.connect(owner).addDomainType('foxbit');
+  });
+
+  it("Change Personal Info of User", async function () {  
+    await LACNSContract.connect(userOne).register('fer', 'num', 1, userOne.address, {value: '800000000000000000'});
+    await expect(LACNSContract.connect(userOne).changePersonalInfo('fer','num','fer.jpg','fer@mail.com','@fergmolina', '@fergmolina'))
+    .to.emit(LACNSContract, 'PersonalInfoChanged')
+    .withArgs(
+      'fer.num',
+      'fer.jpg',
+      'fer@mail.com',
+      "@fergmolina",
+      "@fergmolina"
+    )
+  });
+
+  it("Change Personal Info of another User", async function () {  
+    await LACNSContract.connect(userOne).register('fer', 'num', 1, userOne.address, {value: '800000000000000000'});
+    await expect(LACNSContract.connect(userTwo).changePersonalInfo('fer','num','fer.jpg','fer@mail.com','@fergmolina', '@fergmolina')).to.be.revertedWith('Only the owner of the domain can change the personal information');
+  });
+
+  it("Change Personal Info of another User as owner", async function () {  
+    await LACNSContract.connect(userOne).register('fer', 'num', 1, userOne.address, {value: '800000000000000000'});
+    await expect(LACNSContract.connect(owner).changePersonalInfo('fer','num','fer.jpg','fer@mail.com','@fergmolina', '@fergmolina')).to.be.revertedWith('Only the owner of the domain can change the personal information');
+  });
+
+  it("Change Personal Info of User and check func", async function () {  
+    await LACNSContract.connect(userOne).register('fer', 'num', 1, userOne.address, {value: '800000000000000000'});
+    await LACNSContract.connect(userOne).changePersonalInfo('fer','num','fer.jpg','fer@mail.com','@fergmolina', '@fergmolina');
+    user = await LACNSContract.resolve('fer.num');
+    expect(user[2]).to.equal('fer.jpg');
+    expect(user[3]).to.equal('fer@mail.com');
+    expect(user[4]).to.equal('@fergmolina');
+    expect(user[5]).to.equal('@fergmolina');
+  });
+
+  it("Change Resolve Address of User", async function () {  
+    await LACNSContract.connect(userOne).register('fer', 'num', 1, userOne.address, {value: '800000000000000000'});
+    await expect(LACNSContract.connect(userOne).changeResolve('fer','num',userTwo.address))
+    .to.emit(LACNSContract, 'ResolveChanged')
+    .withArgs(
+      'fer.num',
+      userTwo.address
+    )
+  });
+
+  it("Change Resolve Addressof another User", async function () {  
+    await LACNSContract.connect(userOne).register('fer', 'num', 1, userOne.address, {value: '800000000000000000'});
+    await expect(LACNSContract.connect(userTwo).changeResolve('fer','num',userTwo.address)).to.be.revertedWith('Only the owner of the domain can change the resolve address');
+  });
+
+  it("Change Resolve Address of another User as owner", async function () {  
+    await LACNSContract.connect(userOne).register('fer', 'num', 1, userOne.address, {value: '800000000000000000'});
+    await expect(LACNSContract.connect(owner).changeResolve('fer','num',userTwo.address)).to.be.revertedWith('Only the owner of the domain can change the resolve address');
+  });
+
+  it("Change Resolve Address of User and check func", async function () {  
+    await LACNSContract.connect(userOne).register('fer', 'num', 1, userOne.address, {value: '800000000000000000'});
+    await LACNSContract.connect(userOne).changeResolve('fer','num',userTwo.address);
+    user = await LACNSContract.resolve('fer.num');
+    expect(user[0]).to.equal(userTwo.address);
+  });
 
 });
