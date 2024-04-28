@@ -1,4 +1,6 @@
 const { expect } = require("chai");
+const { ethers } = require("hardhat");
+
 
 describe("LaChain Name Service testing Domain", function () {
 
@@ -321,6 +323,163 @@ describe("LaChain Name Service testing Change Data", function () {
     await LACNSContract.connect(userOne).changeResolve('fer','num',userTwo.address);
     user = await LACNSContract.resolve('fer.num');
     expect(user[0]).to.equal(userTwo.address);
+  });
+
+});
+
+describe("LaChain Name Service testing Price Change", function () {
+
+  let owner, playerOne, playerTwo;
+    
+  beforeEach(async function () {
+      [owner, userOne, userTwo] = await ethers.getSigners();
+      LACNS = await ethers.getContractFactory("LACNameService");
+      LACNSContract = await LACNS.deploy('');
+      await LACNSContract.connect(owner).addDomainType('lac');
+      await LACNSContract.connect(owner).addDomainType('ripio');
+      await LACNSContract.connect(owner).addDomainType('sensei');
+      await LACNSContract.connect(owner).addDomainType('num');
+      await LACNSContract.connect(owner).addDomainType('cedalio');
+      await LACNSContract.connect(owner).addDomainType('buenbit');
+      await LACNSContract.connect(owner).addDomainType('foxbit');
+  });
+
+  it("Change prices and add names", async function () {  
+    await LACNSContract.connect(owner).changePrice('300000000000000000', '400000000000000000', '500000000000000000');
+    
+    const latestBlock = await ethers.provider.getBlock('latest');
+    const adjustedTimestamp = latestBlock.timestamp +  60 + 1;
+    
+    await expect(LACNSContract.connect(userOne).register('fer', 'num', 1, userOne.address, {value: '300000000000000000'}))
+    .to.emit(LACNSContract, 'Register')
+    .withArgs(
+      'fer.num', 
+      userOne.address, 
+      userOne.address, 
+      "", "", "", "", 
+      adjustedTimestamp, 
+      2
+    );
+
+    await expect(LACNSContract.connect(userOne).register('fern', 'lac', 1, userOne.address, {value: '400000000000000000'}))
+    .to.emit(LACNSContract, 'Register')
+    .withArgs(
+      'fern.lac', 
+      userOne.address, 
+      userOne.address, 
+      "", "", "", "", 
+      adjustedTimestamp+1, 
+      3
+    );
+
+    await expect(LACNSContract.connect(userTwo).register('ferna', 'lac', 1, userTwo.address, {value: '500000000000000000'}))
+    .to.emit(LACNSContract, 'Register')
+    .withArgs(
+      'ferna.lac', 
+      userTwo.address, 
+      userTwo.address, 
+      "", "", "", "", 
+      adjustedTimestamp+2, 
+      4
+    );
+
+  });
+
+    it("Change prices and send less money", async function () {  
+      await LACNSContract.connect(owner).changePrice('300000000000000000', '400000000000000000', '500000000000000000');
+      
+      await expect(LACNSContract.connect(userOne).register('fer', 'num', 1, userOne.address, {value: '200000000000000000'})).to.be.revertedWith('Error: Not enough value sent with the transaction.');
+      await expect(LACNSContract.connect(userOne).register('fern', 'lac', 1, userOne.address, {value: '300000000000000000'})).to.be.revertedWith('Error: Not enough value sent with the transaction.');
+      await expect(LACNSContract.connect(userTwo).register('ferna', 'lac', 1, userTwo.address, {value: '400000000000000000'})).to.be.revertedWith('Error: Not enough value sent with the transaction.');
+
+  });
+
+  it("Change prices and add names with more money", async function () {  
+    await LACNSContract.connect(owner).changePrice('300000000000000000', '400000000000000000', '500000000000000000');
+    
+    const latestBlock = await ethers.provider.getBlock('latest');
+    const adjustedTimestamp = latestBlock.timestamp +  60 + 1;
+    
+    await expect(LACNSContract.connect(userOne).register('fer', 'num', 1, userOne.address, {value: '400000000000000000'}))
+    .to.emit(LACNSContract, 'Register')
+    .withArgs(
+      'fer.num', 
+      userOne.address, 
+      userOne.address, 
+      "", "", "", "", 
+      adjustedTimestamp, 
+      2
+    );
+
+    await expect(LACNSContract.connect(userOne).register('fern', 'lac', 1, userOne.address, {value: '500000000000000000'}))
+    .to.emit(LACNSContract, 'Register')
+    .withArgs(
+      'fern.lac', 
+      userOne.address, 
+      userOne.address, 
+      "", "", "", "", 
+      adjustedTimestamp+1, 
+      3
+    );
+
+    await expect(LACNSContract.connect(userTwo).register('ferna', 'lac', 1, userTwo.address, {value: '600000000000000000'}))
+    .to.emit(LACNSContract, 'Register')
+    .withArgs(
+      'ferna.lac', 
+      userTwo.address, 
+      userTwo.address, 
+      "", "", "", "", 
+      adjustedTimestamp+2, 
+      4
+    );
+
+  });
+
+  it("Change prices not owner", async function () {  
+    await expect(LACNSContract.connect(userOne).changePrice('300000000000000000', '400000000000000000', '500000000000000000')).to.be.rejectedWith('Ownable: caller is not the owner');
+
+  });
+
+});
+
+describe("LaChain Name Service testing Owner functions", function () {
+
+  let owner, playerOne, playerTwo;
+    
+  beforeEach(async function () {
+      [owner, userOne, userTwo] = await ethers.getSigners();
+      LACNS = await ethers.getContractFactory("LACNameService");
+      LACNSContract = await LACNS.deploy('');
+      await LACNSContract.connect(owner).addDomainType('lac');
+      await LACNSContract.connect(owner).addDomainType('ripio');
+      await LACNSContract.connect(owner).addDomainType('sensei');
+      await LACNSContract.connect(owner).addDomainType('num');
+      await LACNSContract.connect(owner).addDomainType('cedalio');
+      await LACNSContract.connect(owner).addDomainType('buenbit');
+      await LACNSContract.connect(owner).addDomainType('foxbit');
+  });
+
+  it("Withdraw money", async function () {  
+    const initialBalance = await ethers.provider.getBalance(owner.address);
+
+    await LACNSContract.connect(userOne).register('fer', 'num', 1, userOne.address, {value: '800000000000000000'});
+    await LACNSContract.connect(userOne).register('fer', 'lac', 1, userOne.address, {value: '800000000000000000'});
+    const newBalance = await ethers.provider.getBalance(owner.address);
+    await expect(
+      LACNSContract.connect(owner).withdraw()
+    ).to.changeEtherBalance(owner, ethers.parseUnits('800000000000000000', 'wei') + ethers.parseUnits('800000000000000000', 'wei'), { includeFee: false });
+  });
+
+  it("Withdraw money with empty contract", async function () {  
+    const initialBalance = await ethers.provider.getBalance(owner.address);
+    const newBalance = await ethers.provider.getBalance(owner.address);
+    await expect(
+      LACNSContract.connect(owner).withdraw()
+    ).to.changeEtherBalance(owner,ethers.parseUnits('0', 'wei'), { includeFee: false });
+  });
+
+  it("Withdraw money as User", async function () {  
+    await expect(LACNSContract.connect(userOne).withdraw()).to.be.rejectedWith('Ownable: caller is not the owner');
   });
 
 });
