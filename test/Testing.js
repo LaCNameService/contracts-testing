@@ -69,7 +69,7 @@ describe("LaChain Name Service testing Register", function () {
 
   it("Register a new Name with 3 letters", async function () {
     const latestBlock = await ethers.provider.getBlock('latest');
-    const adjustedTimestamp = latestBlock.timestamp + 60 + 1; // Adjust timestamp as needed
+    const adjustedTimestamp = latestBlock.timestamp + 60 + 1; 
   
     await expect(LACNSContract.connect(userOne).register('fer', 'lac', 1, userOne.address, {value: '800000000000000000'}))
       .to.emit(LACNSContract, 'Register')
@@ -85,7 +85,7 @@ describe("LaChain Name Service testing Register", function () {
 
   it("Register a new Name with 4 letters", async function () {
     const latestBlock = await ethers.provider.getBlock('latest');
-    const adjustedTimestamp = latestBlock.timestamp + 60 + 1; // Adjust timestamp as needed
+    const adjustedTimestamp = latestBlock.timestamp + 60 + 1; 
   
     await expect(LACNSContract.connect(userOne).register('fern', 'lac', 1, userOne.address, {value: '600000000000000000'}))
       .to.emit(LACNSContract, 'Register')
@@ -483,3 +483,235 @@ describe("LaChain Name Service testing Owner functions", function () {
   });
 
 });
+
+describe("LaChain Name Service testing due domains", function () {
+  let owner, playerOne, playerTwo;
+    
+  beforeEach(async function () {
+      [owner, userOne, userTwo] = await ethers.getSigners();
+      LACNS = await ethers.getContractFactory("LACNameService");
+      LACNSContract = await LACNS.deploy('');
+      await LACNSContract.connect(owner).addDomainType('lac');
+      await LACNSContract.connect(owner).addDomainType('ripio');
+      await LACNSContract.connect(owner).addDomainType('sensei');
+      await LACNSContract.connect(owner).addDomainType('num');
+      await LACNSContract.connect(owner).addDomainType('cedalio');
+      await LACNSContract.connect(owner).addDomainType('buenbit');
+      await LACNSContract.connect(owner).addDomainType('foxbit');
+  });
+
+
+  it("Name due", async function () {
+    const latestBlock = await ethers.provider.getBlock('latest');
+    const adjustedTimestamp = latestBlock.timestamp + 60 + 1; 
+  
+    await expect(LACNSContract.connect(userOne).register('fer', 'lac', 1, userOne.address, {value: '800000000000000000'}))
+      .to.emit(LACNSContract, 'Register')
+      .withArgs(
+        'fer.lac', 
+        userOne.address, 
+        userOne.address, 
+        "", "", "", "", 
+        adjustedTimestamp, 
+        2
+      );
+      
+      const blockNumber = await ethers.provider.getBlockNumber();
+      const block = await ethers.provider.getBlock(blockNumber);
+      const futureTimestamp = block.timestamp + (1 * 60 * 60 * 24 * 365);
+      await network.provider.send("evm_setNextBlockTimestamp", [futureTimestamp]);
+      await network.provider.send("evm_mine"); 
+
+      await expect(LACNSContract.connect(userTwo).resolve('fer.lac')).to.be.revertedWith('Error: The domain is either not registered or expired.');
+
+  });
+
+  it("Register name, due and then renew", async function () {
+    const latestBlock = await ethers.provider.getBlock('latest');
+    const adjustedTimestamp = latestBlock.timestamp + 60 + 1; 
+  
+    await expect(LACNSContract.connect(userOne).register('fer', 'lac', 1, userOne.address, {value: '800000000000000000'}))
+      .to.emit(LACNSContract, 'Register')
+      .withArgs(
+        'fer.lac', 
+        userOne.address, 
+        userOne.address, 
+        "", "", "", "", 
+        adjustedTimestamp, 
+        2
+      );
+      
+      const blockNumber = await ethers.provider.getBlockNumber();
+      const block = await ethers.provider.getBlock(blockNumber);
+      const futureTimestamp = block.timestamp + (1 * 60 * 60 * 24 * 365);
+      await network.provider.send("evm_setNextBlockTimestamp", [futureTimestamp]);
+      await network.provider.send("evm_mine"); 
+
+      await expect(LACNSContract.connect(userTwo).resolve('fer.lac')).to.be.revertedWith('Error: The domain is either not registered or expired.');
+
+      const latestBlock_2 = await ethers.provider.getBlock('latest');
+      const adjustedTimestamp_2 = latestBlock_2.timestamp + (1 * 60 * 60 * 24 * 365); 
+    
+      await expect(LACNSContract.connect(userOne).renew('fer', 'lac', 1, {value: '800000000000000000'}))
+      .to.emit(LACNSContract, 'Renewal')
+      .withArgs(
+        'fer.lac', 
+        adjustedTimestamp_2
+        );
+
+  });
+
+  it("Register name and renew before due", async function () {
+    const latestBlock = await ethers.provider.getBlock('latest');
+    const adjustedTimestamp = latestBlock.timestamp + 60 + 1; 
+  
+    await expect(LACNSContract.connect(userOne).register('fer', 'lac', 1, userOne.address, {value: '800000000000000000'}))
+      .to.emit(LACNSContract, 'Register')
+      .withArgs(
+        'fer.lac', 
+        userOne.address, 
+        userOne.address, 
+        "", "", "", "", 
+        adjustedTimestamp, 
+        2
+      );
+      
+      const blockNumber = await ethers.provider.getBlockNumber();
+      const block = await ethers.provider.getBlock(blockNumber);
+      const dueDate = block.timestamp + (1 * 60 * 60 * 24 * 365);
+      const futureTimestamp = block.timestamp + (1 * 60 * 60 * 24 * 135);
+      await network.provider.send("evm_setNextBlockTimestamp", [futureTimestamp]);
+      await network.provider.send("evm_mine"); 
+
+      user = await LACNSContract.resolve('fer.lac');
+      expect(user[0]).to.equal(userOne.address);
+
+      const adjustedTimestamp_2 = dueDate + (1 * 60 * 60 * 24 * 365); 
+    
+      await expect(LACNSContract.connect(userOne).renew('fer', 'lac', 1, {value: '800000000000000000'}))
+      .to.emit(LACNSContract, 'Renewal')
+      .withArgs(
+        'fer.lac', 
+        adjustedTimestamp_2
+        );
+
+  });
+
+  it("Register name, renew before due and userTwo wants to register", async function () {
+    const latestBlock = await ethers.provider.getBlock('latest');
+    const adjustedTimestamp = latestBlock.timestamp + 60 + 1; 
+  
+    await expect(LACNSContract.connect(userOne).register('fer', 'lac', 1, userOne.address, {value: '800000000000000000'}))
+      .to.emit(LACNSContract, 'Register')
+      .withArgs(
+        'fer.lac', 
+        userOne.address, 
+        userOne.address, 
+        "", "", "", "", 
+        adjustedTimestamp, 
+        2
+      );
+      
+      const blockNumber = await ethers.provider.getBlockNumber();
+      const block = await ethers.provider.getBlock(blockNumber);
+      const dueDate = block.timestamp + (1 * 60 * 60 * 24 * 365);
+      const futureTimestamp = block.timestamp + (1 * 60 * 60 * 24 * 135);
+      await network.provider.send("evm_setNextBlockTimestamp", [futureTimestamp]);
+      await network.provider.send("evm_mine"); 
+
+      user = await LACNSContract.resolve('fer.lac');
+      expect(user[0]).to.equal(userOne.address);
+
+      const adjustedTimestamp_2 = dueDate + (1 * 60 * 60 * 24 * 365); 
+    
+      await expect(LACNSContract.connect(userOne).renew('fer', 'lac', 1, {value: '800000000000000000'}))
+      .to.emit(LACNSContract, 'Renewal')
+      .withArgs(
+        'fer.lac', 
+        adjustedTimestamp_2
+        );
+
+        await expect(LACNSContract.connect(userTwo).register('fer', 'lac', 1, userTwo.address, {value: '800000000000000000'})).to.be.revertedWith('Error: Domain is not available for registration.')
+
+  });
+
+  it("Register name, due name, renew it and userTwo wants to register", async function () {
+    const latestBlock = await ethers.provider.getBlock('latest');
+    const adjustedTimestamp = latestBlock.timestamp + 60 + 1; 
+  
+    await expect(LACNSContract.connect(userOne).register('fer', 'lac', 1, userOne.address, {value: '800000000000000000'}))
+      .to.emit(LACNSContract, 'Register')
+      .withArgs(
+        'fer.lac', 
+        userOne.address, 
+        userOne.address, 
+        "", "", "", "", 
+        adjustedTimestamp, 
+        2
+      );
+      
+      const blockNumber = await ethers.provider.getBlockNumber();
+      const block = await ethers.provider.getBlock(blockNumber);
+      const futureTimestamp = block.timestamp + (1 * 60 * 60 * 24 * 365);
+      await network.provider.send("evm_setNextBlockTimestamp", [futureTimestamp]);
+      await network.provider.send("evm_mine"); 
+
+      await expect(LACNSContract.connect(userTwo).resolve('fer.lac')).to.be.revertedWith('Error: The domain is either not registered or expired.');
+      
+      const latestBlock_2 = await ethers.provider.getBlock('latest');
+      const adjustedTimestamp_2 = latestBlock_2.timestamp + (1 * 60 * 60 * 24 * 365); 
+    
+      await expect(LACNSContract.connect(userOne).renew('fer', 'lac', 1, {value: '800000000000000000'}))
+      .to.emit(LACNSContract, 'Renewal')
+      .withArgs(
+        'fer.lac', 
+        adjustedTimestamp_2
+        );
+
+        await expect(LACNSContract.connect(userTwo).register('fer', 'lac', 1, userTwo.address, {value: '800000000000000000'})).to.be.revertedWith('Error: Domain is not available for registration.')
+
+  });
+
+  it("Register name, due name and userTwo takes it", async function () {
+    const latestBlock = await ethers.provider.getBlock('latest');
+    const adjustedTimestamp = latestBlock.timestamp + 60 + 1; 
+  
+    await expect(LACNSContract.connect(userOne).register('fer', 'lac', 1, userOne.address, {value: '800000000000000000'}))
+      .to.emit(LACNSContract, 'Register')
+      .withArgs(
+        'fer.lac', 
+        userOne.address, 
+        userOne.address, 
+        "", "", "", "", 
+        adjustedTimestamp, 
+        2
+      );
+      
+      const blockNumber = await ethers.provider.getBlockNumber();
+      const block = await ethers.provider.getBlock(blockNumber);
+      const futureTimestamp = block.timestamp + (1 * 60 * 60 * 24 * 365);
+      await network.provider.send("evm_setNextBlockTimestamp", [futureTimestamp]);
+      await network.provider.send("evm_mine"); 
+
+      await expect(LACNSContract.connect(userTwo).resolve('fer.lac')).to.be.revertedWith('Error: The domain is either not registered or expired.');
+      
+      const latestBlock_2 = await ethers.provider.getBlock('latest');
+      const adjustedTimestamp_2 = latestBlock_2.timestamp + 60 + 1; 
+
+      await expect(LACNSContract.connect(userTwo).register('fer', 'lac', 1, userTwo.address, {value: '800000000000000000'}))
+      .to.emit(LACNSContract, 'Register')
+      .withArgs(
+        'fer.lac', 
+        userTwo.address, 
+        userTwo.address, 
+        "", "", "", "", 
+        adjustedTimestamp_2, 
+        3
+      );
+
+      await expect(LACNSContract.connect(userOne).renew('fer', 'lac', 1, {value: '800000000000000000'})).to.be.revertedWith('Error: Only the domain owner can renew the domain.')
+
+  });
+
+});
+
