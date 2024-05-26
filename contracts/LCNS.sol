@@ -2622,6 +2622,7 @@ contract LACNameService is Ownable, ERC721Enumerable {
     mapping(string => domain) public domains;
     mapping(uint256 => NFT) public NFTS;
     mapping(string => bool) public isDomainTypeAllowed;
+    mapping(string => address) public domainWhitelist;
 
     constructor(string memory baseURI_) ERC721("LAC Name Service", "LACNS") { 
         baseURI = baseURI_;
@@ -2685,6 +2686,10 @@ contract LACNameService is Ownable, ERC721Enumerable {
         require(!paused, "Error: Contract is currently paused.");
         require(year >= 1, "Error: Invalid registration year, year must be greater than or equal to 1.");
         require(bytes(name).length >= 3, "Error: Domain name must have at least 3 characters.");
+
+        if (domainWhitelist[domainType] != address(0)) {
+            require(domainWhitelist[domainType] == msg.sender, "Error: Not authorized to register this domain type.");
+        }
         
         if(msg.sender != owner()){
         uint256 price = getDomainPrice(name) * year;
@@ -2821,4 +2826,12 @@ function changePrice(int256 _threeLetters , int256 _fourLetters , int256 _fiveLe
         }
         return (tokenIds, domainNames);
     }
+
+function setWhitelist(string memory domainType, address wallet) public onlyOwner {
+    domainWhitelist[domainType] = wallet;
+}
+
+function removeWhitelist(string memory domainType) public onlyOwner {
+    delete domainWhitelist[domainType];
+}
 }
