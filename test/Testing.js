@@ -715,3 +715,136 @@ describe("LaChain Name Service testing due domains", function () {
 
 });
 
+describe("LaChain Name Service testing whitelist registrants", function () {
+  let owner, playerOne, playerTwo;
+    
+  beforeEach(async function () {
+      [owner, userOne, userTwo] = await ethers.getSigners();
+      LACNS = await ethers.getContractFactory("LACNameService");
+      LACNSContract = await LACNS.deploy('');
+      await LACNSContract.connect(owner).addDomainType('lac');
+      await LACNSContract.connect(owner).addDomainType('ripio');
+      await LACNSContract.connect(owner).addDomainType('sensei');
+      await LACNSContract.connect(owner).addDomainType('num');
+      await LACNSContract.connect(owner).addDomainType('cedalio');
+      await LACNSContract.connect(owner).addDomainType('buenbit');
+      await LACNSContract.connect(owner).addDomainType('foxbit');
+      await LACNSContract.connect(owner).setWhitelist('ripio',userOne.address);
+  });
+
+  it("Register a Domain as userTwo that only userOne can register", async function () {
+    await expect(LACNSContract.connect(userTwo).register('fer', 'ripio', 1, userTwo.address, {value: '800000000000000000'})).to.be.revertedWith('Error: Not authorized to register this domain type.')
+  });
+
+  it("Register a Domain as userTwo that anyone can register", async function () {
+    const latestBlock = await ethers.provider.getBlock('latest');
+    const adjustedTimestamp = latestBlock.timestamp +  60 + 1;
+    
+    await expect(LACNSContract.connect(userTwo).register('fer', 'num', 1, userTwo.address, {value: '800000000000000000'}))
+    .to.emit(LACNSContract, 'Register')
+    .withArgs(
+      'fer.num', 
+      userTwo.address, 
+      userTwo.address, 
+      "", "", "", "", 
+      adjustedTimestamp, 
+      2
+    );
+
+  });
+
+    it("Remove restriction and try to Register domain as userTwo", async function () {
+      await expect(LACNSContract.connect(userTwo).register('fer', 'ripio', 1, userTwo.address, {value: '800000000000000000'})).to.be.revertedWith('Error: Not authorized to register this domain type.')
+      await LACNSContract.connect(owner).removeWhitelist('ripio');
+
+      const latestBlock = await ethers.provider.getBlock('latest');
+      const adjustedTimestamp = latestBlock.timestamp +  60 + 1;
+      
+      await expect(LACNSContract.connect(userTwo).register('fer', 'ripio', 1, userTwo.address, {value: '800000000000000000'}))
+      .to.emit(LACNSContract, 'Register')
+      .withArgs(
+        'fer.ripio', 
+        userTwo.address, 
+        userTwo.address, 
+        "", "", "", "", 
+        adjustedTimestamp, 
+        2
+      );
+    });
+
+    it("Try to register a whitelist address as userTwo", async function () {
+      await expect(LACNSContract.connect(userTwo).setWhitelist('lac', userTwo.address)).to.be.revertedWith('Ownable: caller is not the owner')
+    });
+
+    it("Try to remove a whitelist address as userTwo", async function () {
+      await expect(LACNSContract.connect(userTwo).removeWhitelist('ripio')).to.be.revertedWith('Ownable: caller is not the owner')
+    });
+
+    it("Renew domain as whitelisted address", async function () {
+      const latestBlock = await ethers.provider.getBlock('latest');
+      const adjustedTimestamp = latestBlock.timestamp + 60 + 1; 
+    
+      await expect(LACNSContract.connect(userOne).register('fer', 'ripio', 1, userTwo.address, {value: '800000000000000000'}))
+        .to.emit(LACNSContract, 'Register')
+        .withArgs(
+          'fer.ripio', 
+          userOne.address, 
+          userTwo.address, 
+          "", "", "", "", 
+          adjustedTimestamp, 
+          2
+        );
+        
+        const blockNumber = await ethers.provider.getBlockNumber();
+        const block = await ethers.provider.getBlock(blockNumber);
+        const futureTimestamp = block.timestamp + (1 * 60 * 60 * 24 * 365);
+        await network.provider.send("evm_setNextBlockTimestamp", [futureTimestamp]);
+        await network.provider.send("evm_mine"); 
+
+        await expect(LACNSContract.connect(userTwo).resolve('fer.ripio')).to.be.revertedWith('Error: The domain is either not registered or expired.');
+
+        const latestBlock_2 = await ethers.provider.getBlock('latest');
+        const adjustedTimestamp_2 = latestBlock_2.timestamp + (1 * 60 * 60 * 24 * 365); 
+      
+        await expect(LACNSContract.connect(userOne).renew('fer', 'ripio', 1, {value: '800000000000000000'}))
+        .to.emit(LACNSContract, 'Renewal')
+        .withArgs(
+          'fer.ripio', 
+          adjustedTimestamp_2
+          );
+      });
+    
+      it("Renew domain as userTwo", async function () {
+        const latestBlock = await ethers.provider.getBlock('latest');
+        const adjustedTimestamp = latestBlock.timestamp + 60 + 1; 
+      
+        await expect(LACNSContract.connect(userOne).register('fer', 'ripio', 1, userTwo.address, {value: '800000000000000000'}))
+          .to.emit(LACNSContract, 'Register')
+          .withArgs(
+            'fer.ripio', 
+            userOne.address, 
+            userTwo.address, 
+            "", "", "", "", 
+            adjustedTimestamp, 
+            2
+          );
+          
+          const blockNumber = await ethers.provider.getBlockNumber();
+          const block = await ethers.provider.getBlock(blockNumber);
+          const futureTimestamp = block.timestamp + (1 * 60 * 60 * 24 * 365);
+          await network.provider.send("evm_setNextBlockTimestamp", [futureTimestamp]);
+          await network.provider.send("evm_mine"); 
+  
+          await expect(LACNSContract.connect(userTwo).resolve('fer.ripio')).to.be.revertedWith('Error: The domain is either not registered or expired.');
+  
+          await expect(LACNSContract.connect(userTwo).renew('fer', 'ripio', 1, {value: '800000000000000000'})).to.be.revertedWith('Error: Only the domain owner can renew the domain.')
+
+      });
+
+
+
+
+
+
+});
+
